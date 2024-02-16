@@ -5,7 +5,7 @@
     "main": "index.js",
     "engines": {
         "node": ">=20.0.0"
-      },
+    },
     "scripts": {
         "start:dev": "nodemon",
         "start:prod": "tsc && node ./dist/index.js",
@@ -16,6 +16,7 @@
     "license": "ISC",
     "devDependencies": {
         "@types/node": "^20.11.19",
+        "@types/ws": "^8.5.10",
         "cross-env": "^7.0.3",
         "eslint": "^8.56.0",
         "nodemon": "^2.0.16",
