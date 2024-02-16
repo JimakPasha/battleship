@@ -1,7 +1,7 @@
 import { WebSocketServer, createWebSocketStream } from 'ws';
-import { getUserLength } from './db';
-import { ISocket } from './models';
-import { Event } from './enums';
+import { getUserLength, getGameLength, createNewRoom, addSecondUserToRoom } from './db';
+import { ISocket, IUser } from './models';
+import { EventType } from './enums';
 import { updateRoom, updateWinners } from './handlers';
 
 export const initWebSocketServer = (serverPort: number) => {
@@ -12,53 +12,62 @@ export const initWebSocketServer = (serverPort: number) => {
   webSocketServer.on('connection', (ws, req) => {
     sockets.push({ id: sockets.length + 1, socket: ws });
     const wsStream = createWebSocketStream(ws, { encoding: 'utf8', decodeStrings: false });
-    let currentPlayerId: number
+    let currentUser: IUser;
   
     console.log((`WS_params:${JSON.stringify(req.socket.address())}`))
   
+    // TODO: переименовтаь название rawData
     wsStream.on('data', async (rawData) => {
-      const { type, data, id } = JSON.parse(rawData);
+      const { id, type, data } = JSON.parse(rawData);
 
       switch (type) {
-        case Event.REG: {
+        case EventType.REG: {
+          const newUser = {
+            name: data.name,
+            index: getUserLength(),
+          };
           const resRegData = JSON.stringify({
             type,
             id,
             data: JSON.stringify({
-              name: data.name,
-              index: getUserLength(),
+              ...newUser,
               error: false,
               errorText: "",
             })
           });
-
-          currentPlayerId = getUserLength();
-
           ws.send(resRegData);
+
+          currentUser = newUser;
           updateRoom(sockets);
           updateWinners(sockets);
 
           break;
         }
-        // case 'create_room': {
-        //   const resData = JSON.stringify({
-        //     type: 'create_game',
-        //     id,
-        //     data: JSON.stringify({
-        //       idGame: getGameLength(),
-        //       idPlayer: currentPlayerId,
-        //     })
-        //   })
 
-        //   ws.send(resData);
+        case EventType.CREATE_ROOM: {
+          createNewRoom(currentUser);
+          break;
+        }
 
-        //   break; 
-        // }
-        // case 'update_room': {
-        //   console.log('update_room');
+        case EventType.ADD_USER_TO_ROOM: {
+          addSecondUserToRoom(data.indexRoom, currentUser);
+          updateRoom(sockets);
 
-        //   break;
-        // }
+          const newGame = {
+            idGame: getGameLength(),
+            idPlayer: currentUser.index,
+          };
+          const resCreateGameData = JSON.stringify({
+            type: EventType.CREATE_GAME,
+            id,
+            data: JSON.stringify(newGame),
+          });
+
+          ws.send(resCreateGameData);
+          // TODO: по идее нужно в bd создать игру
+          
+          break;
+        }
       }
     });
     
