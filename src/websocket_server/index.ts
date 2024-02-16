@@ -1,11 +1,9 @@
 import { WebSocketServer, createWebSocketStream } from 'ws';
 
-export const initWebSocketServer = () => {
-  const SERVER_PORT = 3000;
-
+export const initWebSocketServer = (serverPort: number | string) => {
   const sockets = [];
   
-  const webSocketServer = new WebSocketServer({ port: SERVER_PORT}, () => console.log(`Web Socket server on the ${SERVER_PORT} port!`) );
+  const webSocketServer = new WebSocketServer({ port: serverPort}, () => console.log(`Web Socket server on the ${serverPort} port!`) );
   
   webSocketServer.on('connection', (ws, req) => {
     sockets.push(ws);
