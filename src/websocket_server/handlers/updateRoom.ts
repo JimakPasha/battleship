@@ -1,9 +1,9 @@
+import { WebSocket } from 'ws';
 import { getRoomsWithOneUser } from '../db';
-import { ISocket } from '../models';
 import { EventType } from '../enums';
 
-export const updateRoom = (sockets: ISocket[]) => {
-  sockets.forEach(({ socket }) => (
+export const updateRoom = (sockets: WebSocket[]) => {
+  sockets.forEach((socket) => (
     socket.send(JSON.stringify({
       type: EventType.UPDATE_ROOM,
       data: JSON.stringify(getRoomsWithOneUser()),

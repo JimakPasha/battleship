@@ -1,16 +1,16 @@
-import { WebSocketServer, createWebSocketStream } from 'ws';
-import { getUserLength, getGameLength, createNewRoom, addSecondUserToRoom } from './db';
-import { ISocket, IUser } from './models';
+import { WebSocketServer, createWebSocketStream, WebSocket } from 'ws';
+import { getUsersLength, getGameLength, createNewRoom, addSecondUserToRoom, createNewUser, getUsersByRoomId, getOpponentsWs, getRooms, getUsers, createNewGame, addShipsForGame } from './db';
+import { IUser } from './models';
 import { EventType } from './enums';
 import { updateRoom, updateWinners } from './handlers';
 
 export const initWebSocketServer = (serverPort: number) => {
-  const sockets: ISocket[] = [];
+  const sockets: WebSocket[] = [];
 
   const webSocketServer = new WebSocketServer({ port: serverPort}, () => console.log(`Web Socket server on the ${serverPort} port!`) );
   
   webSocketServer.on('connection', (ws, req) => {
-    sockets.push({ id: sockets.length + 1, socket: ws });
+    sockets.push(ws);
     const wsStream = createWebSocketStream(ws, { encoding: 'utf8', decodeStrings: false });
     let currentUser: IUser;
   
@@ -19,12 +19,13 @@ export const initWebSocketServer = (serverPort: number) => {
     // TODO: переименовтаь название rawData
     wsStream.on('data', async (rawData) => {
       const { id, type, data } = JSON.parse(rawData);
-
+      const parsedData = data ? JSON.parse(data) : data;
+      
       switch (type) {
         case EventType.REG: {
           const newUser = {
-            name: data.name,
-            index: getUserLength(),
+            name: parsedData.name,
+            index: getUsersLength(),
           };
           const resRegData = JSON.stringify({
             type,
@@ -38,6 +39,7 @@ export const initWebSocketServer = (serverPort: number) => {
           ws.send(resRegData);
 
           currentUser = newUser;
+          createNewUser({...newUser, ws});
           updateRoom(sockets);
           updateWinners(sockets);
 
@@ -46,15 +48,18 @@ export const initWebSocketServer = (serverPort: number) => {
 
         case EventType.CREATE_ROOM: {
           createNewRoom(currentUser);
+          updateRoom(sockets);
+
           break;
         }
 
         case EventType.ADD_USER_TO_ROOM: {
-          addSecondUserToRoom(data.indexRoom, currentUser);
+          addSecondUserToRoom(parsedData.indexRoom, currentUser);
           updateRoom(sockets);
+          const idGame = getGameLength();
 
           const newGame = {
-            idGame: getGameLength(),
+            idGame,
             idPlayer: currentUser.index,
           };
           const resCreateGameData = JSON.stringify({
@@ -63,10 +68,23 @@ export const initWebSocketServer = (serverPort: number) => {
             data: JSON.stringify(newGame),
           });
 
-          ws.send(resCreateGameData);
-          // TODO: по идее нужно в bd создать игру
+          const usersIndexesInRoom = getUsersByRoomId(parsedData.indexRoom);
+          const opponentsWs = getOpponentsWs(usersIndexesInRoom);
+
+          opponentsWs.forEach((socket) => {
+            socket.send(resCreateGameData);
+          });
+
+          createNewGame({ idGame });
           
           break;
+        }
+
+        case EventType.ADD_SHIPS: {
+          const { gameId, indexPlayer, ships} = parsedData;
+          addShipsForGame({ gameId, indexPlayer, ships });
+
+          // TODO: если есть позиции кораблей двух игроков, то начинать игру
         }
       }
     });

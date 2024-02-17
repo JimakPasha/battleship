@@ -1,9 +1,6 @@
-export interface IRoomUser {
-  name: string;
-  index: number;
-}
+import { IUser } from "./IUser";
 
 export interface IRoom {
   roomId: number;
-  roomUsers: IRoomUser[];
+  roomUsers: IUser[];
 }
