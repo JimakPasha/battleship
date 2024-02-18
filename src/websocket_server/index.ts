@@ -11,6 +11,10 @@ import {
   getUsers,
   createNewGame,
   addShipsForGame,
+  isAllUsersInGameAddShips,
+  getShipsUserInGame,
+  getUsersByGameId,
+  games,
 } from './db';
 import { IUser } from './models';
 import { EventType } from './enums';
@@ -34,7 +38,7 @@ export const initWebSocketServer = (serverPort: number) => {
     console.log(`WS_params:${JSON.stringify(req.socket.address())}`);
 
     // TODO: переименовтаь название rawData
-    wsStream.on('data', async (rawData) => {
+    wsStream.on('data', async (rawData) => {      
       const { id, type, data } = JSON.parse(rawData);
       const parsedData = data ? JSON.parse(data) : data;
 
@@ -74,21 +78,21 @@ export const initWebSocketServer = (serverPort: number) => {
           addSecondUserToRoom(parsedData.indexRoom, currentUser);
           updateRoom(sockets);
           const idGame = getGameLength();
-
-          const newGame = {
-            idGame,
-            idPlayer: currentUser.index,
-          };
-          const resCreateGameData = JSON.stringify({
-            type: EventType.CREATE_GAME,
-            id,
-            data: JSON.stringify(newGame),
-          });
-
+          
           const usersIndexesInRoom = getUsersByRoomId(parsedData.indexRoom);
           const opponentsWs = getOpponentsWs(usersIndexesInRoom);
 
-          opponentsWs.forEach((socket) => {
+          opponentsWs.forEach((socket, index) => {
+            const newGame = {
+              idGame,
+              idPlayer: usersIndexesInRoom[index],
+            };
+            const resCreateGameData = JSON.stringify({
+              type: EventType.CREATE_GAME,
+              id,
+              data: JSON.stringify(newGame),
+            });
+
             socket.send(resCreateGameData);
           });
 
@@ -101,7 +105,24 @@ export const initWebSocketServer = (serverPort: number) => {
           const { gameId, indexPlayer, ships } = parsedData;
           addShipsForGame({ gameId, indexPlayer, ships });
 
-          // TODO: если есть позиции кораблей двух игроков, то начинать игру
+          if (isAllUsersInGameAddShips(gameId)) {
+            
+            const usersIndexesInGame = getUsersByGameId(parsedData.gameId);
+            const opponentsWs = getOpponentsWs(usersIndexesInGame);
+
+            opponentsWs.forEach((socket, index) => {
+              const resGameData = JSON.stringify({
+                type: EventType.START_GAME,
+                id,
+                data: JSON.stringify({
+                  ships: JSON.stringify(getShipsUserInGame({ idGame: gameId, indexPlayer: usersIndexesInGame[index] })),
+                  currentPlayerIndex: currentUser.index,
+                }),
+              });
+
+              socket.send(resGameData);
+            });
+          }
         }
       }
     });

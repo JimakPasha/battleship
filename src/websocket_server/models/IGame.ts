@@ -18,5 +18,5 @@ interface IUserGameInfo {
 
 export interface IGame {
   idGame: number;
-  usersGameInfo?: [IUserGameInfo?, IUserGameInfo?];
+  usersGameInfo?: IUserGameInfo[];
 }

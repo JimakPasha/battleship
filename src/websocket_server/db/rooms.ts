@@ -9,8 +9,8 @@ export const getRooms = () => rooms;
 export const getRoomsWithOneUser = () =>
   rooms.filter(({ roomUsers }) => roomUsers.length === 1);
 
-export const getUsersByRoomId = (roomIdProp: number): [number, number] => {
-  const roomsUsers = rooms.find(({ roomId }) => roomId === roomIdProp).roomUsers;
+export const getUsersByRoomId = (roomId: number): [number, number] => {
+  const roomsUsers = rooms.find((room) => room.roomId === roomId)?.roomUsers;
   return [roomsUsers[0].index, roomsUsers[1].index];
 };
 
