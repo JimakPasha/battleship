@@ -1,4 +1,4 @@
-import { IWinner } from '../models'
+import { IWinner } from '../models';
 
 const winners: IWinner[] = [];
 

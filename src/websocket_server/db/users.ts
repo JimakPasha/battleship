@@ -1,5 +1,5 @@
 import { WebSocket } from 'ws';
-import { IUserWithWS } from '../models'
+import { IUserWithWS } from '../models';
 
 const users: IUserWithWS[] = [];
 
@@ -7,11 +7,13 @@ export const getUsers = () => users;
 
 export const getUsersLength = () => users.length;
 
-export const getOpponentsWs = ([firstUserIndex, secondUserIndex]: [number, number]): [WebSocket, WebSocket] => {
+export const getOpponentsWs = ([firstUserIndex, secondUserIndex]: [number, number]): [
+  WebSocket,
+  WebSocket,
+] => {
   const firstWs = users.find(({ index }) => index === firstUserIndex).ws;
   const secondWs = users.find(({ index }) => index === secondUserIndex).ws;
-  return [firstWs, secondWs]
+  return [firstWs, secondWs];
 };
 
 export const createNewUser = (user: IUserWithWS) => users.push(user);
-

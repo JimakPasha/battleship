@@ -1,5 +1,17 @@
 import { WebSocketServer, createWebSocketStream, WebSocket } from 'ws';
-import { getUsersLength, getGameLength, createNewRoom, addSecondUserToRoom, createNewUser, getUsersByRoomId, getOpponentsWs, getRooms, getUsers, createNewGame, addShipsForGame } from './db';
+import {
+  getUsersLength,
+  getGameLength,
+  createNewRoom,
+  addSecondUserToRoom,
+  createNewUser,
+  getUsersByRoomId,
+  getOpponentsWs,
+  getRooms,
+  getUsers,
+  createNewGame,
+  addShipsForGame,
+} from './db';
 import { IUser } from './models';
 import { EventType } from './enums';
 import { updateRoom, updateWinners } from './handlers';
@@ -7,20 +19,25 @@ import { updateRoom, updateWinners } from './handlers';
 export const initWebSocketServer = (serverPort: number) => {
   const sockets: WebSocket[] = [];
 
-  const webSocketServer = new WebSocketServer({ port: serverPort}, () => console.log(`Web Socket server on the ${serverPort} port!`) );
-  
+  const webSocketServer = new WebSocketServer({ port: serverPort }, () =>
+    console.log(`Web Socket server on the ${serverPort} port!`)
+  );
+
   webSocketServer.on('connection', (ws, req) => {
     sockets.push(ws);
-    const wsStream = createWebSocketStream(ws, { encoding: 'utf8', decodeStrings: false });
+    const wsStream = createWebSocketStream(ws, {
+      encoding: 'utf8',
+      decodeStrings: false,
+    });
     let currentUser: IUser;
-  
-    console.log((`WS_params:${JSON.stringify(req.socket.address())}`))
-  
+
+    console.log(`WS_params:${JSON.stringify(req.socket.address())}`);
+
     // TODO: переименовтаь название rawData
     wsStream.on('data', async (rawData) => {
       const { id, type, data } = JSON.parse(rawData);
       const parsedData = data ? JSON.parse(data) : data;
-      
+
       switch (type) {
         case EventType.REG: {
           const newUser = {
@@ -33,13 +50,13 @@ export const initWebSocketServer = (serverPort: number) => {
             data: JSON.stringify({
               ...newUser,
               error: false,
-              errorText: "",
-            })
+              errorText: '',
+            }),
           });
           ws.send(resRegData);
 
           currentUser = newUser;
-          createNewUser({...newUser, ws});
+          createNewUser({ ...newUser, ws });
           updateRoom(sockets);
           updateWinners(sockets);
 
@@ -76,18 +93,17 @@ export const initWebSocketServer = (serverPort: number) => {
           });
 
           createNewGame({ idGame });
-          
+
           break;
         }
 
         case EventType.ADD_SHIPS: {
-          const { gameId, indexPlayer, ships} = parsedData;
+          const { gameId, indexPlayer, ships } = parsedData;
           addShipsForGame({ gameId, indexPlayer, ships });
 
           // TODO: если есть позиции кораблей двух игроков, то начинать игру
         }
       }
     });
-    
   });
-}
+};
