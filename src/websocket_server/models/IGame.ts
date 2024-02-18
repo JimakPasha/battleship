@@ -1,6 +1,8 @@
+export type ShotStatusType = 'miss' | 'killed' | 'shot';
+
 type TypeOfSizeShip = 'small' | 'medium' | 'large' | 'huge';
 
-interface ICoordinates {
+interface IPositions {
   x: number;
   y: number;
 }
@@ -8,9 +10,11 @@ interface ICoordinates {
 export interface IShip {
   direction: boolean;
   length: number;
-  positon: ICoordinates;
+  positon: IPositions;
   type: TypeOfSizeShip;
+  decksPositions: number[];
 }
+
 interface IUserGameInfo {
   indexPlayer: number;
   ships: IShip[];

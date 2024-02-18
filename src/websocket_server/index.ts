@@ -15,6 +15,8 @@ import {
   getShipsUserInGame,
   getUsersByGameId,
   games,
+  getGameById,
+  attack,
 } from './db';
 import { IUser } from './models';
 import { EventType } from './enums';
@@ -122,8 +124,26 @@ export const initWebSocketServer = (serverPort: number) => {
 
               socket.send(resGameData);
             });
+
+            const turnGameData = JSON.stringify({
+              type: EventType.TURN,
+              id,
+              data: JSON.stringify({
+                currentPlayer: usersIndexesInGame[0],
+              }),
+            });
+
+            opponentsWs[0].send(turnGameData);
           }
         }
+
+        case EventType.ATTACK: {
+          const { gameId, x, y, indexPlayer } = parsedData;
+
+          // TODO: отправлять инфо двум игрокам
+          const shotStatus = attack({ gameId, x, y, indexPlayer });
+        }
+
       }
     });
   });
