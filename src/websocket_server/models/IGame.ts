@@ -10,7 +10,7 @@ interface IPositions {
 export interface IShip {
   direction: boolean;
   length: number;
-  positon: IPositions;
+  position: IPositions;
   type: TypeOfSizeShip;
   decksPositions: number[];
 }

@@ -17,12 +17,14 @@ import {
   games,
   getGameById,
   attack,
+  getIndexEnemyByGameIdByUserId,
 } from './db';
 import { IUser } from './models';
 import { EventType } from './enums';
 import { updateRoom, updateWinners } from './handlers';
 
 export const initWebSocketServer = (serverPort: number) => {
+  
   const sockets: WebSocket[] = [];
 
   const webSocketServer = new WebSocketServer({ port: serverPort }, () =>
@@ -40,7 +42,7 @@ export const initWebSocketServer = (serverPort: number) => {
     console.log(`WS_params:${JSON.stringify(req.socket.address())}`);
 
     // TODO: переименовтаь название rawData
-    wsStream.on('data', async (rawData) => {      
+    wsStream.on('data', async (rawData) => {
       const { id, type, data } = JSON.parse(rawData);
       const parsedData = data ? JSON.parse(data) : data;
 
@@ -108,7 +110,6 @@ export const initWebSocketServer = (serverPort: number) => {
           addShipsForGame({ gameId, indexPlayer, ships });
 
           if (isAllUsersInGameAddShips(gameId)) {
-            
             const usersIndexesInGame = getUsersByGameId(parsedData.gameId);
             const opponentsWs = getOpponentsWs(usersIndexesInGame);
 
@@ -133,15 +134,45 @@ export const initWebSocketServer = (serverPort: number) => {
               }),
             });
 
-            opponentsWs[0].send(turnGameData);
+            opponentsWs.forEach((socket) => {
+              socket.send(turnGameData);
+            });
           }
+
+          break;
         }
 
         case EventType.ATTACK: {
           const { gameId, x, y, indexPlayer } = parsedData;
 
-          // TODO: отправлять инфо двум игрокам
           const shotStatus = attack({ gameId, x, y, indexPlayer });
+          const usersIndexesInGame = getUsersByGameId(parsedData.gameId);
+          const opponentsWs = getOpponentsWs(usersIndexesInGame);
+          const enemyIndexInGame = getIndexEnemyByGameIdByUserId({ idGame: parsedData.gameId, indexPlayer });
+
+          const turnGameData = JSON.stringify({
+            type: EventType.TURN,
+            id,
+            data: JSON.stringify({
+              currentPlayer: shotStatus === 'miss' ? enemyIndexInGame : indexPlayer,
+            }),
+          });
+
+          opponentsWs.forEach((socket, index) => {
+            const attackData = JSON.stringify({
+              type: EventType.ATTACK,
+              id,
+              data: JSON.stringify({
+                position:JSON.stringify({ x, y }),
+                currentPlayer: usersIndexesInGame[index],
+                status: shotStatus,
+              }),
+            });
+            socket.send(attackData);
+            socket.send(turnGameData);
+          });
+
+          break;
         }
 
       }

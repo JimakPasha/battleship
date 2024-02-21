@@ -11,6 +11,11 @@ interface IGetShipsUserInGameProps {
   indexPlayer: number;
 }
 
+interface IGetEnemyByGameIdByUserIdProps {
+  idGame: number;
+  indexPlayer: number;
+}
+
 interface IAttackProps {
   gameId: number;
   x: number;
@@ -33,13 +38,13 @@ export const addShipsForGame = ({
 }: IAddShipsForGameProps) => {
   const updatedGames = games.map((game) => {
     if (game.idGame === gameId) {
-      const shipsWithDecksPositions = ships.map(({ direction, length, positon, type }) => (
+      const shipsWithDecksPositions = ships.map(({ direction, length, position, type }) => (
         {
           direction,
           length,
-          positon,
+          position,
           type,
-          decksPositions: Array(length).fill(length).map((el, index) => el + index),
+          decksPositions: Array(length).fill(length).map((_, index) => (direction ? position.y : position.x) + index),
         }
       ));
 
@@ -62,6 +67,12 @@ export const getUsersByGameId = (idGame: number): [number, number] => {
   return [gamesUsers[0].indexPlayer, gamesUsers[1].indexPlayer];
 };
 
+export const getIndexEnemyByGameIdByUserId = ({idGame, indexPlayer}: IGetEnemyByGameIdByUserIdProps) => {
+  const gamesUsers = games.find((game) => game.idGame === idGame)?.usersGameInfo;
+  const indexEnemy = gamesUsers.find((gameUser) => gameUser.indexPlayer != indexPlayer)?.indexPlayer;
+  return indexEnemy;
+}
+
 export const isAllUsersInGameAddShips = (idGame: number): boolean => {
   const currentGame = getGameById(idGame);
   return !!(currentGame?.usersGameInfo?.[0]?.ships && currentGame?.usersGameInfo?.[1]?.ships)
@@ -70,12 +81,13 @@ export const isAllUsersInGameAddShips = (idGame: number): boolean => {
 export const getShipsUserInGame = ({ idGame, indexPlayer }: IGetShipsUserInGameProps) => {
   const currentGame = getGameById(idGame);
   const ships = currentGame?.usersGameInfo?.find((userInfo) => userInfo.indexPlayer === indexPlayer)?.ships;
-  return ships.map(({ direction, length, positon, type }) => ({ direction, length, positon, type }));
+  return ships.map(({ direction, length, position, type }) => ({ direction, length, position, type }));
 }
 
 export const attack = ({ gameId, x, y, indexPlayer }: IAttackProps) => {
   const currentGame = getGameById(gameId);
-  const enemysShips = currentGame?.usersGameInfo?.find((userGameInfo) => userGameInfo.indexPlayer !== indexPlayer)?.ships;
+  const enemysShips = currentGame?.usersGameInfo?.find((userGameInfo) => userGameInfo.indexPlayer !== indexPlayer)?.ships;  
+console.log(enemysShips);
 
   let shotShipIndex: number;
   let shotStatus: ShotStatusType = 'miss';
@@ -93,14 +105,15 @@ export const attack = ({ gameId, x, y, indexPlayer }: IAttackProps) => {
     newDecksPositions = decksPositions.filter((n) => n !== position);
   }
 
-  enemysShips?.map(({ decksPositions, direction, positon }, index) => {
-    if (direction && x === positon.x && decksPositions.includes(y)) {
+  enemysShips?.map(({ decksPositions, direction, position, length }, index) => {
+    if (direction && x === position.x && decksPositions.includes(y)) {
       setNewShotStatusAndIndex({ decksPositions, index, position: y });
-    } else if (y === positon.y &&  decksPositions.includes(x)) {
+    } else if (!direction && y === position.y && decksPositions.includes(x)) {
       setNewShotStatusAndIndex({ decksPositions, index, position: x });
     }
   });
 
+  // TODO: есть небольшой косяк с условиями на 109 строчке и далее
 
   // TODO: менять в bd decksPositions для нужной игры, игрока, коробля
   // TODO: разделить функцию, на логику и запросы к бд
