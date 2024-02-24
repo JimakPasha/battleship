@@ -23,4 +23,5 @@ interface IUserGameInfo {
 export interface IGame {
   idGame: number;
   usersGameInfo?: IUserGameInfo[];
+  turnIndexUser?: number;
 }

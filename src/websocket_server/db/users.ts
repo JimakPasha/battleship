@@ -17,3 +17,7 @@ export const getOpponentsWs = ([firstUserIndex, secondUserIndex]: [number, numbe
 };
 
 export const createNewUser = (user: IUserWithWS) => users.push(user);
+
+export const getNameByIndexUser = (index: number) => {
+  return users.find((user) => user.index === index).name;
+};

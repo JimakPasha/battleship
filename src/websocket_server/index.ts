@@ -1,3 +1,4 @@
+// TODO: определиться с тем, что сначала в базе меняем а потом на фронт или наоборот?
 import { WebSocketServer, createWebSocketStream, WebSocket } from 'ws';
 import {
   getUsersLength,
@@ -18,6 +19,13 @@ import {
   getGameById,
   attack,
   getIndexEnemyByGameIdByUserId,
+  getGameTurnByGameId,
+  setGameTurn,
+  checkIsMyTurn,
+  checkIsFinishGame,
+  getNameByIndexUser,
+  updateWinnersInDb,
+  deleteGameById,
 } from './db';
 import { IUser } from './models';
 import { EventType } from './enums';
@@ -118,7 +126,7 @@ export const initWebSocketServer = (serverPort: number) => {
                 type: EventType.START_GAME,
                 id,
                 data: JSON.stringify({
-                  ships: JSON.stringify(getShipsUserInGame({ idGame: gameId, indexPlayer: usersIndexesInGame[index] })),
+                  ships: getShipsUserInGame({ idGame: gameId, indexPlayer: usersIndexesInGame[index] }),
                   currentPlayerIndex: currentUser.index,
                 }),
               });
@@ -126,11 +134,12 @@ export const initWebSocketServer = (serverPort: number) => {
               socket.send(resGameData);
             });
 
+
             const turnGameData = JSON.stringify({
               type: EventType.TURN,
               id,
               data: JSON.stringify({
-                currentPlayer: usersIndexesInGame[0],
+                currentPlayer: getGameTurnByGameId(gameId),
               }),
             });
 
@@ -145,34 +154,73 @@ export const initWebSocketServer = (serverPort: number) => {
         case EventType.ATTACK: {
           const { gameId, x, y, indexPlayer } = parsedData;
 
-          const shotStatus = attack({ gameId, x, y, indexPlayer });
-          const usersIndexesInGame = getUsersByGameId(parsedData.gameId);
-          const opponentsWs = getOpponentsWs(usersIndexesInGame);
-          const enemyIndexInGame = getIndexEnemyByGameIdByUserId({ idGame: parsedData.gameId, indexPlayer });
+          const isMyTurn = checkIsMyTurn({idGame: gameId, indexPlayerWantAttack: indexPlayer});
 
-          const turnGameData = JSON.stringify({
-            type: EventType.TURN,
-            id,
-            data: JSON.stringify({
-              currentPlayer: shotStatus === 'miss' ? enemyIndexInGame : indexPlayer,
-            }),
-          });
-
-          opponentsWs.forEach((socket, index) => {
-            const attackData = JSON.stringify({
-              type: EventType.ATTACK,
+          if (isMyTurn) {
+            const shotStatus = attack({ gameId, x, y, indexPlayer });
+            const usersIndexesInGame = getUsersByGameId(parsedData.gameId);
+            const opponentsWs = getOpponentsWs(usersIndexesInGame);
+            const enemyIndexInGame = getIndexEnemyByGameIdByUserId({ idGame: parsedData.gameId, indexPlayer });
+  
+            const nextPlayerIndex = shotStatus === 'miss' ? enemyIndexInGame : indexPlayer;
+  
+            let isFinishGame = false;
+            
+            if (shotStatus !== 'miss') {
+              isFinishGame = checkIsFinishGame({ idGame: gameId, currentUserIndex: indexPlayer });
+            }
+            
+            // TODO: Если игра финиш, то тут лишняя переменная. 
+            const turnGameData = JSON.stringify({
+              type: EventType.TURN,
               id,
               data: JSON.stringify({
-                position:JSON.stringify({ x, y }),
-                currentPlayer: usersIndexesInGame[index],
-                status: shotStatus,
+                currentPlayer: nextPlayerIndex,
               }),
             });
-            socket.send(attackData);
-            socket.send(turnGameData);
-          });
+
+            // TODO: Если игра не финиш, то тут лишняя переменная.
+            const finishGameData = JSON.stringify({
+              type: EventType.FINISH,
+              id,
+              data: JSON.stringify({
+                winPlayer: indexPlayer,
+              }),
+            });
+  
+            opponentsWs.forEach((socket, index) => {
+              const attackData = JSON.stringify({
+                type: EventType.ATTACK,
+                id,
+                data: JSON.stringify({
+                  position: { x, y },
+                  currentPlayer: indexPlayer,
+                  status: shotStatus,
+                }),
+              });
+              socket.send(attackData);
+
+              if (isFinishGame) {
+                socket.send(finishGameData);
+              } else {
+                socket.send(turnGameData);
+              } 
+            });
+  
+
+            if (isFinishGame) {
+              const nameUser = getNameByIndexUser(indexPlayer);
+              updateWinnersInDb(nameUser);
+              deleteGameById(gameId);
+              updateWinners(sockets);
+            } else {
+              setGameTurn({idGame: gameId, nextPlayerIndex});
+            }
+
+          } 
 
           break;
+
         }
 
       }
