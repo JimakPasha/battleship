@@ -32,7 +32,6 @@ import { EventType } from './enums';
 import { updateRoom, updateWinners } from './handlers';
 
 export const initWebSocketServer = (serverPort: number) => {
-  
   const sockets: WebSocket[] = [];
 
   const webSocketServer = new WebSocketServer({ port: serverPort }, () =>
@@ -90,7 +89,7 @@ export const initWebSocketServer = (serverPort: number) => {
           addSecondUserToRoom(parsedData.indexRoom, currentUser);
           updateRoom(sockets);
           const idGame = getGameLength();
-          
+
           const usersIndexesInRoom = getUsersByRoomId(parsedData.indexRoom);
           const opponentsWs = getOpponentsWs(usersIndexesInRoom);
 
@@ -126,14 +125,16 @@ export const initWebSocketServer = (serverPort: number) => {
                 type: EventType.START_GAME,
                 id,
                 data: JSON.stringify({
-                  ships: getShipsUserInGame({ idGame: gameId, indexPlayer: usersIndexesInGame[index] }),
+                  ships: getShipsUserInGame({
+                    idGame: gameId,
+                    indexPlayer: usersIndexesInGame[index],
+                  }),
                   currentPlayerIndex: currentUser.index,
                 }),
               });
 
               socket.send(resGameData);
             });
-
 
             const turnGameData = JSON.stringify({
               type: EventType.TURN,
@@ -154,23 +155,33 @@ export const initWebSocketServer = (serverPort: number) => {
         case EventType.ATTACK: {
           const { gameId, x, y, indexPlayer } = parsedData;
 
-          const isMyTurn = checkIsMyTurn({idGame: gameId, indexPlayerWantAttack: indexPlayer});
+          const isMyTurn = checkIsMyTurn({
+            idGame: gameId,
+            indexPlayerWantAttack: indexPlayer,
+          });
 
           if (isMyTurn) {
             const shotStatus = attack({ gameId, x, y, indexPlayer });
             const usersIndexesInGame = getUsersByGameId(parsedData.gameId);
             const opponentsWs = getOpponentsWs(usersIndexesInGame);
-            const enemyIndexInGame = getIndexEnemyByGameIdByUserId({ idGame: parsedData.gameId, indexPlayer });
-  
-            const nextPlayerIndex = shotStatus === 'miss' ? enemyIndexInGame : indexPlayer;
-  
+            const enemyIndexInGame = getIndexEnemyByGameIdByUserId({
+              idGame: parsedData.gameId,
+              indexPlayer,
+            });
+
+            const nextPlayerIndex =
+              shotStatus === 'miss' ? enemyIndexInGame : indexPlayer;
+
             let isFinishGame = false;
-            
+
             if (shotStatus !== 'miss') {
-              isFinishGame = checkIsFinishGame({ idGame: gameId, currentUserIndex: indexPlayer });
+              isFinishGame = checkIsFinishGame({
+                idGame: gameId,
+                currentUserIndex: indexPlayer,
+              });
             }
-            
-            // TODO: Если игра финиш, то тут лишняя переменная. 
+
+            // TODO: Если игра финиш, то тут лишняя переменная.
             const turnGameData = JSON.stringify({
               type: EventType.TURN,
               id,
@@ -187,7 +198,7 @@ export const initWebSocketServer = (serverPort: number) => {
                 winPlayer: indexPlayer,
               }),
             });
-  
+
             opponentsWs.forEach((socket, index) => {
               const attackData = JSON.stringify({
                 type: EventType.ATTACK,
@@ -204,9 +215,8 @@ export const initWebSocketServer = (serverPort: number) => {
                 socket.send(finishGameData);
               } else {
                 socket.send(turnGameData);
-              } 
+              }
             });
-  
 
             if (isFinishGame) {
               const nameUser = getNameByIndexUser(indexPlayer);
@@ -214,15 +224,12 @@ export const initWebSocketServer = (serverPort: number) => {
               deleteGameById(gameId);
               updateWinners(sockets);
             } else {
-              setGameTurn({idGame: gameId, nextPlayerIndex});
+              setGameTurn({ idGame: gameId, nextPlayerIndex });
             }
-
-          } 
+          }
 
           break;
-
         }
-
       }
     });
   });

@@ -10,7 +10,7 @@ export const updateWinnersInDb = (name: string) => {
   if (isWonEarlier) {
     winners = winners.map((winner) => {
       if (winner.name === name) {
-        return { ...winner, wins: winner.wins + 1 }
+        return { ...winner, wins: winner.wins + 1 };
       }
       return winner;
     });
