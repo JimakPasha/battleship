@@ -1,5 +1,10 @@
 import { IRoom, IUser } from '../models';
 
+interface ICheckIsUserAlreadyInRoomProps {
+  roomId: number;
+  userIndex: number;
+}
+
 const rooms: IRoom[] = [];
 
 const getRoomsLength = () => rooms.length;
@@ -22,3 +27,8 @@ export const addSecondUserToRoom = (indexRoom: number, roomUser: IUser) => {
   if (roomIndex >= 0)
     rooms[roomIndex].roomUsers = [...rooms[roomIndex].roomUsers, roomUser];
 };
+
+export const checkIsUserAlreadyInRoom = ({ roomId, userIndex }: ICheckIsUserAlreadyInRoomProps) => {
+  const currentRoom = rooms.find((room) => room.roomId === roomId);
+  return currentRoom.roomUsers.some((roomUser) => roomUser.index === userIndex);
+}

@@ -1,4 +1,3 @@
-// TODO: определиться с тем, что сначала в базе меняем а потом на фронт или наоборот?
 import { WebSocketServer, createWebSocketStream, WebSocket } from 'ws';
 import {
   getUsersLength,
@@ -26,6 +25,7 @@ import {
   getNameByIndexUser,
   updateWinnersInDb,
   deleteGameById,
+  checkIsUserAlreadyInRoom,
 } from './db';
 import { IUser } from './models';
 import { EventType } from './enums';
@@ -86,28 +86,33 @@ export const initWebSocketServer = (serverPort: number) => {
         }
 
         case EventType.ADD_USER_TO_ROOM: {
-          addSecondUserToRoom(parsedData.indexRoom, currentUser);
-          updateRoom(sockets);
-          const idGame = getGameLength();
+          
+          const isUserAlreadyInRoom = checkIsUserAlreadyInRoom({ roomId: parsedData.indexRoom, userIndex: currentUser.index });
 
-          const usersIndexesInRoom = getUsersByRoomId(parsedData.indexRoom);
-          const opponentsWs = getOpponentsWs(usersIndexesInRoom);
-
-          opponentsWs.forEach((socket, index) => {
-            const newGame = {
-              idGame,
-              idPlayer: usersIndexesInRoom[index],
-            };
-            const resCreateGameData = JSON.stringify({
-              type: EventType.CREATE_GAME,
-              id,
-              data: JSON.stringify(newGame),
+          if (!isUserAlreadyInRoom) {
+            addSecondUserToRoom(parsedData.indexRoom, currentUser);
+            updateRoom(sockets);
+            const idGame = getGameLength();
+  
+            const usersIndexesInRoom = getUsersByRoomId(parsedData.indexRoom);
+            const opponentsWs = getOpponentsWs(usersIndexesInRoom);
+  
+            opponentsWs.forEach((socket, index) => {
+              const newGame = {
+                idGame,
+                idPlayer: usersIndexesInRoom[index],
+              };
+              const resCreateGameData = JSON.stringify({
+                type: EventType.CREATE_GAME,
+                id,
+                data: JSON.stringify(newGame),
+              });
+  
+              socket.send(resCreateGameData);
             });
-
-            socket.send(resCreateGameData);
-          });
-
-          createNewGame({ idGame });
+  
+            createNewGame({ idGame });
+          }
 
           break;
         }
