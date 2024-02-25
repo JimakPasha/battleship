@@ -28,7 +28,10 @@ export const addSecondUserToRoom = (indexRoom: number, roomUser: IUser) => {
     rooms[roomIndex].roomUsers = [...rooms[roomIndex].roomUsers, roomUser];
 };
 
-export const checkIsUserAlreadyInRoom = ({ roomId, userIndex }: ICheckIsUserAlreadyInRoomProps) => {
+export const checkIsUserAlreadyInRoom = ({
+  roomId,
+  userIndex,
+}: ICheckIsUserAlreadyInRoomProps) => {
   const currentRoom = rooms.find((room) => room.roomId === roomId);
   return currentRoom.roomUsers.some((roomUser) => roomUser.index === userIndex);
-}
+};

@@ -1,4 +1,4 @@
-import { IGame, IShip, ShotStatusType } from '../models';
+import { IDeck, IGame, IPosition, IShip, ShotStatusType } from '../models';
 
 interface IAddShipsForGameProps {
   gameId: number;
@@ -38,6 +38,18 @@ interface ICheckIsFinishGameProps {
   currentUserIndex: number;
 }
 
+interface ISetNewShotStatusAndIndexProps {
+  decks: IDeck[];
+  index: number;
+  position: number;
+}
+
+interface ICheckIsForbidenShotProps {
+  idGame: number;
+  indexPlayerWantAttack: number;
+  shotPosition: IPosition;
+}
+
 export let games: IGame[] = [];
 
 export const getGameById = (idGame: number) =>
@@ -55,23 +67,57 @@ export const addShipsForGame = ({
   const updatedGames = games.map((game) => {
     if (game.idGame === gameId) {
       const shipsWithDecksPositions = ships.map(
-        ({ direction, length, position, type }) => ({
-          direction,
-          length,
-          position,
-          type,
-          decksPositions: Array(length)
+        ({ direction, length, position: { x, y }, type }) => {
+          const decks = Array(length)
             .fill(length)
-            .map((_, index) => (direction ? position.y : position.x) + index),
-        })
+            .map((_, index) => ({
+              position: (direction ? y : x) + index,
+              isWhole: true,
+            }));
+
+          // TODO: это фиаско
+          const boundaryСellsEmpty = Array(length * 2 + 6).fill(null);
+          const boundaryСells = boundaryСellsEmpty
+            .map((_, index) => {
+              if (index < 3) {
+                return direction
+                  ? { x: x - 1 + index, y: y - 1 }
+                  : { x: x - 1, y: y - 1 + index };
+              } else if (index < length + 3) {
+                return direction
+                  ? { x: x - 1, y: y + index - 3 }
+                  : { x: x + index - 3, y: y - 1 };
+              } else if (index < length * 2 + 3) {
+                return direction
+                  ? { x: x + 1, y: y + index - 3 - length }
+                  : { x: x + index - 3 - length, y: y + 1 };
+              } else {
+                return direction
+                  ? { x: x - 1 + (boundaryСellsEmpty.length - index - 1), y: y + length }
+                  : { x: x + length, y: y - 1 + (boundaryСellsEmpty.length - index - 1) };
+              }
+            })
+            .filter(({ x, y }) => x > -1 && y > -1 && x < 10 && y < 10);
+
+          return {
+            direction,
+            length,
+            position: { x, y },
+            type,
+            decks,
+            boundaryСells,
+          };
+        }
       );
 
-      // TODO: можно turnIndexUser сделать рандомный. Или посмотреть в тз как вообще должно быть
       return {
         ...game,
         usersGameInfo: game?.usersGameInfo?.[0]
-          ? [game.usersGameInfo[0], { indexPlayer, ships: shipsWithDecksPositions }]
-          : [{ indexPlayer, ships: shipsWithDecksPositions }],
+          ? [
+              game.usersGameInfo[0],
+              { indexPlayer, ships: shipsWithDecksPositions, forbiddenPositions: [] },
+            ]
+          : [{ indexPlayer, ships: shipsWithDecksPositions, forbiddenPositions: [] }],
         turnIndexUser: indexPlayer,
       };
     }
@@ -128,73 +174,91 @@ export const attack = ({ gameId, x, y, indexPlayer }: IAttackProps) => {
   )?.ships;
 
   let shotShipIndex: number;
-  let shotStatus: ShotStatusType = 'miss';
-  let newDecksPositions: number[] = [];
+  let shotStatus = ShotStatusType.MISS as ShotStatusType;
+  let newDecksPositions: IDeck[] = [];
 
   const setNewShotStatusAndIndex = ({
-    decksPositions,
+    decks,
     index,
     position,
-  }: {
-    decksPositions: number[];
-    index: number;
-    position: number;
-  }) => {
+  }: ISetNewShotStatusAndIndexProps) => {
     shotShipIndex = index;
 
-    if (decksPositions.length === 1) {
-      shotStatus = 'killed';
-    } else if (decksPositions.length > 1) {
-      shotStatus = 'shot';
+    const decksWholeLength = decks.filter(({ isWhole }) => isWhole).length;
+
+    if (decksWholeLength === 1) {
+      shotStatus = ShotStatusType.KILLED;
+    } else if (decksWholeLength > 1) {
+      shotStatus = ShotStatusType.SHOT;
     }
 
-    newDecksPositions = decksPositions.filter((n) => n !== position);
+    newDecksPositions = decks.map((deck) => ({
+      ...deck,
+      isWhole: deck.position === position ? !(deck.position === position) : deck.isWhole,
+    }));
   };
 
-  enemysShips?.forEach(({ decksPositions, direction, position, length }, index) => {
-    if (direction && x === position.x && decksPositions.includes(y)) {
-      setNewShotStatusAndIndex({ decksPositions, index, position: y });
-    } else if (!direction && y === position.y && decksPositions.includes(x)) {
-      setNewShotStatusAndIndex({ decksPositions, index, position: x });
+  enemysShips?.forEach(({ decks, direction, position }, index) => {
+    if (direction && x === position.x && decks.find(({ position }) => position === y)) {
+      setNewShotStatusAndIndex({ decks, index, position: y });
+    } else if (
+      !direction &&
+      y === position.y &&
+      decks.find(({ position }) => position === x)
+    ) {
+      setNewShotStatusAndIndex({ decks, index, position: x });
     }
   });
 
-  // TODO: есть небольшой косяк с условиями на 109 строчке и далее
-
   // TODO: это фиаско
-  if (shotStatus !== 'miss') {
-    games = games.map((game) => {
-      if (game.idGame === gameId) {
-        const newUsersGameInfo = game.usersGameInfo.map((userGameInfo) => {
-          if (userGameInfo.indexPlayer !== indexPlayer) {
-            const newShips = userGameInfo.ships.reduce((newShips, ship, index) => {
-              if (index === shotShipIndex && newDecksPositions.length) {
-                newShips.push({ ...ship, decksPositions: newDecksPositions });
-              } else if (index === shotShipIndex && !newDecksPositions.length) {
-                return newShips;
-              } else {
-                newShips.push(ship);
-              }
-              return newShips;
-            }, []);
-            return { ...userGameInfo, ships: newShips };
+  games = games.map((game) => {
+    if (game.idGame === gameId) {
+      const updatedUsersGameInfo = game.usersGameInfo.map((userGameInfo) => {
+        if (userGameInfo.indexPlayer !== indexPlayer) {
+          if (shotStatus === ShotStatusType.MISS) {
+            return {
+              ...userGameInfo,
+              forbiddenPositions: [...userGameInfo.forbiddenPositions, { x, y }],
+            };
           }
-          return userGameInfo;
-        });
-        return { ...game, usersGameInfo: newUsersGameInfo };
-      }
-      return game;
-    });
-  }
 
-  // тут проверка что бд обновилась корректно
-  // const currentGame2 = getGameById(gameId);
-  // const enemysShips2 = currentGame2?.usersGameInfo?.find((userGameInfo) => userGameInfo.indexPlayer !== indexPlayer)?.ships;
-  // console.log(enemysShips2);
+          let updatedForbiddenPositions: IPosition[] = [];
 
-  // TODO: разделить функцию, на логику и запросы к бд
+          const updatedShips = userGameInfo.ships.map((ship, indexShip) => {
+            if (shotShipIndex === indexShip) {
+              if (shotStatus === ShotStatusType.KILLED) {
+                ship.boundaryСells.forEach(({ x, y }) => {
+                  updatedForbiddenPositions.push({ x, y });
+                });
+              }
+              return { ...ship, decks: newDecksPositions };
+            }
+            return ship;
+          });
 
-  return shotStatus;
+          return {
+            ...userGameInfo,
+            ships: updatedShips,
+            forbiddenPositions: [
+              ...userGameInfo.forbiddenPositions,
+              ...updatedForbiddenPositions,
+              { x, y },
+            ],
+          };
+        }
+        return userGameInfo;
+      });
+      return { ...game, usersGameInfo: updatedUsersGameInfo };
+    }
+    return game;
+  });
+
+  const boundaryСells = games
+    .find((game) => game.idGame === gameId)
+    .usersGameInfo.find((userGameInfo) => userGameInfo.indexPlayer !== indexPlayer)
+    .ships.find((_, indexShip) => indexShip === shotShipIndex)?.boundaryСells;
+
+  return { shotStatus, boundaryСells };
 };
 
 export const setGameTurn = ({ idGame, nextPlayerIndex }: ISetGameTurnProps) => {
@@ -225,9 +289,40 @@ export const checkIsFinishGame = ({
     ({ indexPlayer }) => indexPlayer === indexEnemy
   );
 
-  return !shipsEnemy.ships.length;
+  let isFinishGame = true;
+
+  shipsEnemy.ships.forEach(({ decks }) => {
+    decks.forEach(({ isWhole }) => {
+      if (isWhole) {
+        isFinishGame = false;
+      }
+    })
+  });
+
+  return isFinishGame;
 };
 
 export const deleteGameById = (idGame: number) => {
   games = games.filter((game) => game.idGame !== idGame);
+};
+
+export const checkIsForbidenShot = ({
+  idGame,
+  indexPlayerWantAttack,
+  shotPosition,
+}: ICheckIsForbidenShotProps) => {
+  const currentGame = getGameById(idGame);
+  const enemyGameInfo = currentGame.usersGameInfo.find(
+    ({ indexPlayer }) => indexPlayer !== indexPlayerWantAttack
+  );
+
+  let isForbidenShot = false;
+
+  enemyGameInfo.forbiddenPositions.forEach(({ x, y }) => {
+    if (shotPosition.x === x && shotPosition.y === y) {
+      isForbidenShot = true;
+    }
+  });
+
+  return isForbidenShot;
 };

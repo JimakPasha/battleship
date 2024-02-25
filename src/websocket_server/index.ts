@@ -26,8 +26,9 @@ import {
   updateWinnersInDb,
   deleteGameById,
   checkIsUserAlreadyInRoom,
+  checkIsForbidenShot,
 } from './db';
-import { IUser } from './models';
+import { IUser, ShotStatusType } from './models';
 import { EventType } from './enums';
 import { updateRoom, updateWinners } from './handlers';
 
@@ -86,17 +87,19 @@ export const initWebSocketServer = (serverPort: number) => {
         }
 
         case EventType.ADD_USER_TO_ROOM: {
-          
-          const isUserAlreadyInRoom = checkIsUserAlreadyInRoom({ roomId: parsedData.indexRoom, userIndex: currentUser.index });
+          const isUserAlreadyInRoom = checkIsUserAlreadyInRoom({
+            roomId: parsedData.indexRoom,
+            userIndex: currentUser.index,
+          });
 
           if (!isUserAlreadyInRoom) {
             addSecondUserToRoom(parsedData.indexRoom, currentUser);
             updateRoom(sockets);
             const idGame = getGameLength();
-  
+
             const usersIndexesInRoom = getUsersByRoomId(parsedData.indexRoom);
             const opponentsWs = getOpponentsWs(usersIndexesInRoom);
-  
+
             opponentsWs.forEach((socket, index) => {
               const newGame = {
                 idGame,
@@ -107,10 +110,10 @@ export const initWebSocketServer = (serverPort: number) => {
                 id,
                 data: JSON.stringify(newGame),
               });
-  
+
               socket.send(resCreateGameData);
             });
-  
+
             createNewGame({ idGame });
           }
 
@@ -165,8 +168,14 @@ export const initWebSocketServer = (serverPort: number) => {
             indexPlayerWantAttack: indexPlayer,
           });
 
-          if (isMyTurn) {
-            const shotStatus = attack({ gameId, x, y, indexPlayer });
+          const isForbidenShot = checkIsForbidenShot({
+            idGame: gameId,
+            indexPlayerWantAttack: indexPlayer,
+            shotPosition: { x, y },
+          });
+
+          if (isMyTurn && !isForbidenShot) {
+            const { shotStatus, boundaryСells } = attack({ gameId, x, y, indexPlayer });
             const usersIndexesInGame = getUsersByGameId(parsedData.gameId);
             const opponentsWs = getOpponentsWs(usersIndexesInGame);
             const enemyIndexInGame = getIndexEnemyByGameIdByUserId({
@@ -175,11 +184,11 @@ export const initWebSocketServer = (serverPort: number) => {
             });
 
             const nextPlayerIndex =
-              shotStatus === 'miss' ? enemyIndexInGame : indexPlayer;
+              shotStatus === ShotStatusType.MISS ? enemyIndexInGame : indexPlayer;
 
             let isFinishGame = false;
 
-            if (shotStatus !== 'miss') {
+            if (shotStatus !== ShotStatusType.MISS) {
               isFinishGame = checkIsFinishGame({
                 idGame: gameId,
                 currentUserIndex: indexPlayer,
@@ -204,7 +213,7 @@ export const initWebSocketServer = (serverPort: number) => {
               }),
             });
 
-            opponentsWs.forEach((socket, index) => {
+            opponentsWs.forEach((socket) => {
               const attackData = JSON.stringify({
                 type: EventType.ATTACK,
                 id,
@@ -215,6 +224,22 @@ export const initWebSocketServer = (serverPort: number) => {
                 }),
               });
               socket.send(attackData);
+
+              if (shotStatus === ShotStatusType.KILLED) {
+                boundaryСells.forEach(({ x, y }) => {
+                  socket.send(
+                    JSON.stringify({
+                      type: EventType.ATTACK,
+                      id,
+                      data: JSON.stringify({
+                        position: { x, y },
+                        currentPlayer: indexPlayer,
+                        status: ShotStatusType.MISS,
+                      }),
+                    })
+                  );
+                });
+              }
 
               if (isFinishGame) {
                 socket.send(finishGameData);

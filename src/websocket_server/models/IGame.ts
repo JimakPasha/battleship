@@ -1,23 +1,34 @@
-export type ShotStatusType = 'miss' | 'killed' | 'shot';
+export const enum ShotStatusType {
+  MISS = 'miss',
+  KILLED = 'killed',
+  SHOT = 'shot',
+}
 
 type TypeOfSizeShip = 'small' | 'medium' | 'large' | 'huge';
 
-interface IPositions {
+export interface IPosition {
   x: number;
   y: number;
+}
+
+export interface IDeck {
+  position: number;
+  isWhole: boolean;
 }
 
 export interface IShip {
   direction: boolean;
   length: number;
-  position: IPositions;
+  position: IPosition;
   type: TypeOfSizeShip;
-  decksPositions: number[];
+  decks: IDeck[];
+  boundaryСells: IPosition[];
 }
 
 interface IUserGameInfo {
   indexPlayer: number;
   ships: IShip[];
+  forbiddenPositions: IPosition[];
 }
 
 export interface IGame {
