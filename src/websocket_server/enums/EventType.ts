@@ -4,6 +4,7 @@ export const enum EventType {
   START_GAME = 'start_game',
   TURN = 'turn',
   ATTACK = 'attack',
+  RANDOM_ATTACK = 'randomAttack',
   FINISH = 'finish',
   UPDATE_ROOM = 'update_room',
   UPDATE_WINNERS = 'update_winners',

@@ -1,4 +1,5 @@
-import { IDeck, IGame, IPosition, IShip, ShotStatusType } from '../models';
+import { ShotStatusType } from '../enums';
+import { IDeck, IGame, IPosition, IShip } from '../models';
 
 interface IAddShipsForGameProps {
   gameId: number;
@@ -67,7 +68,7 @@ export const addShipsForGame = ({
   const updatedGames = games.map((game) => {
     if (game.idGame === gameId) {
       const shipsWithDecksPositions = ships.map(
-        ({ direction, length, position: { x, y }, type }) => {
+        ({ direction, length, position: { x, y } }) => {
           const decks = Array(length)
             .fill(length)
             .map((_, index) => ({
@@ -75,7 +76,7 @@ export const addShipsForGame = ({
               isWhole: true,
             }));
 
-          // TODO: это фиаско
+          // TODO: rewrite!!!
           const boundaryСellsEmpty = Array(length * 2 + 6).fill(null);
           const boundaryСells = boundaryСellsEmpty
             .map((_, index) => {
@@ -103,7 +104,6 @@ export const addShipsForGame = ({
             direction,
             length,
             position: { x, y },
-            type,
             decks,
             boundaryСells,
           };
@@ -159,11 +159,10 @@ export const getShipsUserInGame = ({ idGame, indexPlayer }: IGetShipsUserInGameP
   const ships = currentGame?.usersGameInfo?.find(
     (userInfo) => userInfo.indexPlayer === indexPlayer
   )?.ships;
-  return ships.map(({ direction, length, position, type }) => ({
+  return ships.map(({ direction, length, position }) => ({
     direction,
     length,
     position,
-    type,
   }));
 };
 
@@ -210,7 +209,7 @@ export const attack = ({ gameId, x, y, indexPlayer }: IAttackProps) => {
     }
   });
 
-  // TODO: это фиаско
+  // TODO: rewrite!!!
   games = games.map((game) => {
     if (game.idGame === gameId) {
       const updatedUsersGameInfo = game.usersGameInfo.map((userGameInfo) => {
@@ -296,14 +295,10 @@ export const checkIsFinishGame = ({
       if (isWhole) {
         isFinishGame = false;
       }
-    })
+    });
   });
 
   return isFinishGame;
-};
-
-export const deleteGameById = (idGame: number) => {
-  games = games.filter((game) => game.idGame !== idGame);
 };
 
 export const checkIsForbidenShot = ({
